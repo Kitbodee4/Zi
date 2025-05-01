@@ -1,0 +1,321 @@
+//@version=5
+indicator("Zigzag Inside Bar + Breakout (v5)", overlay=true, max_lines_count=500, max_labels_count=500)
+
+//------------------------------------------------------
+// 1) Bullish / Bearish Check
+//------------------------------------------------------
+var bool isBullish = na
+var bool isBearish = na
+isBullish := close > open[1]
+isBearish := close < open[1]
+log.info("Bar " + str.tostring(bar_index) + ": isBullish=" + str.tostring(isBullish) + ", isBearish=" + str.tostring(isBearish) + ", close=" + str.tostring(close) + ", open[1]=" + str.tostring(open[1]))
+
+//------------------------------------------------------
+// 2) ตรวจจับ Inside Bar และ Breakout
+//------------------------------------------------------
+inside = high < high[1] and low > low[1]
+log.info("Bar " + str.tostring(bar_index) + ": Inside Bar Check - high=" + str.tostring(high) + ", high[1]=" + str.tostring(high[1]) + ", low=" + str.tostring(low) + ", low[1]=" + str.tostring(low[1]) + ", inside=" + str.tostring(inside))
+
+// เพิ่มตัวแปรเพื่อเก็บสถานะว่าเจอ Inside Bar แล้วรอ Breakout
+var bool pendingInsideBar = false
+
+// อาร์เรย์เก็บ high/low ของแท่งก่อนหน้าที่เป็น Inside Bar
+var float[] prevhighArray = array.new_float(0)
+var float[] prevlowArray  = array.new_float(0)
+
+// ถ้าเจอ Inside Bar ให้เก็บค่า high[1]/low[1] ไว้ และตั้งสถานะ pendingInsideBar
+if inside
+    array.push(prevhighArray, high[1])
+    array.push(prevlowArray, low[1])
+    pendingInsideBar := true
+    log.info("Bar " + str.tostring(bar_index) + ": Inside Bar detected, pendingInsideBar=true, prevhighArray=" + str.tostring(array.max(prevhighArray)) + ", prevlowArray=" + str.tostring(array.min(prevlowArray)))
+    // จำกัดขนาด Array ไม่ให้ใหญ่เกิน
+    if array.size(prevhighArray) > 20
+        array.remove(prevhighArray, 0)
+        log.info("Bar " + str.tostring(bar_index) + ": prevhighArray size limited, removed oldest entry")
+    if array.size(prevlowArray) > 20
+        array.remove(prevlowArray, 0)
+        log.info("Bar " + str.tostring(bar_index) + ": prevlowArray size limited, removed oldest entry")
+
+// ตรวจจับ Breakout จาก Inside Bar
+highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
+lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
+log.info("Bar " + str.tostring(bar_index) + ": Breakout Check - highBreakout=" + str.tostring(highBreakout) + ", lowBreakout=" + str.tostring(lowBreakout) + ", high=" + str.tostring(high) + ", max_prevhigh=" + (array.size(prevhighArray) > 0 ? str.tostring(array.max(prevhighArray)) : "na") + ", low=" + str.tostring(low) + ", min_prevlow=" + (array.size(prevlowArray) > 0 ? str.tostring(array.min(prevlowArray)) : "na"))
+
+// ถ้าเกิด Breakout ให้ล้างอาร์เรย์ และยกเลิกสถานะ pendingInsideBar
+if highBreakout or lowBreakout
+    array.clear(prevhighArray)
+    array.clear(prevlowArray)
+    pendingInsideBar := false
+    if highBreakout
+        log.info("Bar " + str.tostring(bar_index) + ": High Breakout confirmed, cleared arrays, pendingInsideBar=false, high=" + str.tostring(high))
+    if lowBreakout
+        log.info("Bar " + str.tostring(bar_index) + ": Low Breakout confirmed, cleared arrays, pendingInsideBar=false, low=" + str.tostring(low))
+
+
+//------------------------------------------------------
+// ตัวแปร & ฟังก์ชันเตรียมสำหรับ Zigzag
+//------------------------------------------------------
+var float lastZigzagEndPrice = na
+var int   lastZigzagEndBar   = na
+var bool  lastWasHigh        = na    // true => swing up, false => swing down
+log.info("Bar " + str.tostring(bar_index) + ": Zigzag State - lastZigzagEndPrice=" + str.tostring(lastZigzagEndPrice) + ", lastZigzagEndBar=" + str.tostring(lastZigzagEndBar) + ", lastWasHigh=" + str.tostring(lastWasHigh))
+
+// เก็บ pivot ล่าสุด
+var float lastPivotPrice = na
+var int   lastPivotBar   = na
+log.info("Bar " + str.tostring(bar_index) + ": Pivot State - lastPivotPrice=" + str.tostring(lastPivotPrice) + ", lastPivotBar=" + str.tostring(lastPivotBar))
+
+// เก็บจุดสูงสุด/ต่ำสุดใน segment ปัจจุบัน
+var float segmentLowestLow   = na
+var int   segmentLowestLowBar = na
+var float segmentHighestHigh  = na
+var int   segmentHighestHighBar = na
+log.info("Bar " + str.tostring(bar_index) + ": Segment State - segmentLowestLow=" + str.tostring(segmentLowestLow) + ", segmentLowestLowBar=" + str.tostring(segmentLowestLowBar) + ", segmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", segmentHighestHighBar=" + str.tostring(segmentHighestHighBar))
+
+// เก็บ High และ Low ของแท่งก่อน Ambiguous Bar
+var float preAmbHigh = na
+var int   preAmbHighBar = na
+var float preAmbLow = na
+var int   preAmbLowBar = na
+
+// ตรวจจับ HigherHigh / LowerLow
+bool higherHigh = high > high[1]
+bool lowerLow   = low < low[1]
+log.info("Bar " + str.tostring(bar_index) + ": High/Low Check - higherHigh=" + str.tostring(higherHigh) + ", lowerLow=" + str.tostring(lowerLow) + ", high=" + str.tostring(high) + ", high[1]=" + str.tostring(high[1]) + ", low=" + str.tostring(low) + ", low[1]=" + str.tostring(low[1]))
+
+// ถ้าไม่ใช่ Ambiguous Bar ให้เก็บ High และ Low ของแท่งนี้เป็น preAmbHigh และ preAmbLow
+if not (higherHigh and lowerLow)
+    preAmbHigh := high
+    preAmbHighBar := bar_index
+    preAmbLow := low
+    preAmbLowBar := bar_index
+    log.info("Bar " + str.tostring(bar_index) + ": Updated preAmbHigh=" + str.tostring(preAmbHigh) + ", preAmbHighBar=" + str.tostring(preAmbHighBar) + ", preAmbLow=" + str.tostring(preAmbLow) + ", preAmbLowBar=" + str.tostring(preAmbLowBar))
+
+//------------------------------------------------------
+// ฟังก์ชันช่วยวาดเส้น
+//------------------------------------------------------
+f_confirmSwingLine(color c, int bar1, float price1, int bar2, float price2) =>
+    if not na(price1)
+        line.new(bar1, price1, bar2, price2, color=c, width=2)
+        log.info("Bar " + str.tostring(bar_index) + ": Drew Zigzag Line from Bar=" + str.tostring(bar1) + ", Price=" + str.tostring(price1) + " to Bar=" + str.tostring(bar2) + ", Price=" + str.tostring(price2))
+    [price2, bar2]
+
+//------------------------------------------------------
+// 4) Logic ในการจัดการ Ambiguous Bar (ให้ความสำคัญสูงสุด)
+//------------------------------------------------------
+bool isAmbiguous    = higherHigh and lowerLow
+var bool pendingAmbiguous = false
+bool prioritizeHigh = false
+bool prioritizeLow  = false
+log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Check - isAmbiguous=" + str.tostring(isAmbiguous) + ", pendingAmbiguous=" + str.tostring(pendingAmbiguous))
+//------------------------------------------------------
+// 3) Plot Candle Colors (optional)
+//------------------------------------------------------
+candleColor = isAmbiguous  ? color.purple :  // เพิ่มสีสำหรับ Ambiguous Bar
+              inside       ? color.yellow :
+              highBreakout ? color.lime   :
+              lowBreakout  ? color.red    : na
+plotcandle(open, high, low, close,
+     color       = candleColor,
+     wickcolor   = candleColor,
+     bordercolor = candleColor)
+if not na(candleColor)
+    log.info("Bar " + str.tostring(bar_index) + ": Candle plotted with color=" + (isAmbiguous ? "purple (Ambiguous)" : inside ? "yellow (Inside)" : highBreakout ? "lime (High Breakout)" : "red (Low Breakout)"))
+
+// ถ้าเจอ Ambiguous Bar ให้ตั้งสถานะรอ
+if isAmbiguous
+    pendingAmbiguous := true
+    log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar detected, set pendingAmbiguous=true")
+
+// กรณี Breakout มาก่อน (แก้ไข Ambiguous หรือ Inside Bar)
+if highBreakout
+    prioritizeHigh := true
+    pendingAmbiguous := false
+    log.info("Bar " + str.tostring(bar_index) + ": High Breakout resolves Ambiguous/Inside, prioritizeHigh=true, pendingAmbiguous=false")
+if lowBreakout
+    prioritizeLow := true
+    pendingAmbiguous := false
+    log.info("Bar " + str.tostring(bar_index) + ": Low Breakout resolves Ambiguous/Inside, prioritizeLow=true, pendingAmbiguous=false")
+
+// ถ้าเป็น Ambiguous และไม่มี Breakout ให้จัดการตามสถานะ Swing และสีแท่ง
+if isAmbiguous and not (highBreakout or lowBreakout)
+    if lastWasHigh or na(lastWasHigh)
+        // Swing Up
+        if close < open
+            // New Case: Go to High of Ambiguous Bar, then to Low
+            if not na(preAmbHigh)
+                [newPrice, newBar] = f_confirmSwingLine(color.rgb(0, 60, 255), lastZigzagEndBar, lastZigzagEndPrice, bar_index, high)
+                lastZigzagEndPrice := newPrice
+                lastZigzagEndBar := newBar
+                log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Up (close < open), drew to High=" + str.tostring(preAmbHigh))
+            [newPrice, newBar] = f_confirmSwingLine(color.rgb(255, 238, 0), lastZigzagEndBar, lastZigzagEndPrice, bar_index, low)
+            lastZigzagEndPrice := newPrice
+            lastZigzagEndBar := newBar
+            log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Up (close < open), drew to Low=" + str.tostring(low))
+            segmentHighestHigh := na
+            segmentHighestHighBar := na
+            segmentLowestLow := low
+            segmentLowestLowBar := bar_index
+            lastWasHigh := false
+            lastPivotPrice := low
+            lastPivotBar := bar_index
+            pendingAmbiguous := false
+            log.info("Bar " + str.tostring(bar_index) + ": Swing Up Ambiguous (close < open) resolved, lastWasHigh=false, lastPivotPrice=" + str.tostring(lastPivotPrice))
+            lastWasHigh:=false
+        else
+           
+            [newPrice, newBar] = f_confirmSwingLine(color.rgb(0, 238, 255), lastZigzagEndBar, lastZigzagEndPrice, bar_index, high)
+            lastZigzagEndPrice := newPrice
+            lastZigzagEndBar := newBar
+            log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Up (close < open), drew to Low=" + str.tostring(low))
+            [newPrice1, newBar1] = f_confirmSwingLine(color.rgb(255, 0, 179), lastZigzagEndBar, lastZigzagEndPrice, bar_index, low)
+            lastZigzagEndPrice := newPrice1
+            lastZigzagEndBar := newBar1
+            segmentHighestHigh := high
+            segmentHighestHighBar := bar_index
+            segmentLowestLow := na
+            segmentLowestLowBar := na
+            lastWasHigh := false
+            lastPivotPrice := high
+            lastPivotBar := bar_index
+            pendingAmbiguous := false
+            log.info("Bar " + str.tostring(bar_index) + ": Swing Up Ambiguous (close < open) resolved, lastWasHigh=false, lastPivotPrice=" + str.tostring(lastPivotPrice))
+            lastWasHigh:=false
+         
+    else
+        // Swing Down
+        if close < open
+            // New Case: Stop at Low of previous bar, then to High of Ambiguous Bar
+            if not na(preAmbLow)
+                [newPrice, newBar] = f_confirmSwingLine(color.rgb(255, 111, 0), lastZigzagEndBar, lastZigzagEndPrice, bar_index, low)
+                lastZigzagEndPrice := newPrice
+                lastZigzagEndBar := newBar
+                log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Down (close < open), drew to preAmbLow=" + str.tostring(preAmbLow))
+            [newPrice, newBar] = f_confirmSwingLine(color.rgb(255, 238, 0), lastZigzagEndBar, lastZigzagEndPrice, bar_index, high)
+            lastZigzagEndPrice := newPrice
+            lastZigzagEndBar := newBar
+            log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Down (close < open), drew to High=" + str.tostring(high))
+            segmentLowestLow := na
+            segmentLowestLowBar := na
+            segmentHighestHigh := high
+            segmentHighestHighBar := bar_index
+            lastWasHigh := true
+            lastPivotPrice := high
+            lastPivotBar := bar_index
+            pendingAmbiguous := false
+            log.info("Bar " + str.tostring(bar_index) + ": Swing Down Ambiguous (close < open) resolved, lastWasHigh=true, lastPivotPrice=" + str.tostring(lastPivotPrice))
+            // lastWasHigh:=true
+        else
+            // prioritizeHigh := true
+            // New Case: Go to Low of Ambiguous Bar, then to High
+            if not na(preAmbLow)
+                [newPrice, newBar] = f_confirmSwingLine(color.rgb(166, 255, 0), lastZigzagEndBar, lastZigzagEndPrice, bar_index, low)
+                lastZigzagEndPrice := newPrice
+                lastZigzagEndBar := newBar
+                log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Down (close > open), drew to Low=" + str.tostring(low))
+            [newPrice, newBar] = f_confirmSwingLine(color.rgb(174, 0, 255), lastZigzagEndBar, lastZigzagEndPrice, bar_index, high)
+            lastZigzagEndPrice := newPrice
+            lastZigzagEndBar := newBar
+            log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Bar in Swing Down (close > open), drew to High=" + str.tostring(high))
+            segmentLowestLow := na
+            segmentLowestLowBar := na
+            segmentHighestHigh := high
+            segmentHighestHighBar := bar_index
+            lastWasHigh := true
+            lastPivotPrice := high
+            lastPivotBar := bar_index
+            pendingAmbiguous := false
+            lastWasHigh:=false
+            log.info("Bar " + str.tostring(bar_index) + ": Swing Down Ambiguous (close > open) resolved, lastWasHigh=true, lastPivotPrice=" + str.tostring(lastPivotPrice))
+log.info("Bar " + str.tostring(bar_index) + ": Ambiguous Resolution - prioritizeHigh=" + str.tostring(prioritizeHigh) + ", prioritizeLow=" + str.tostring(prioritizeLow))
+
+//------------------------------------------------------
+// 5) อัปเดต segmentLowestLow / segmentHighestHigh ในทุกบาร์
+//------------------------------------------------------
+if na(segmentLowestLow) or low < segmentLowestLow
+    segmentLowestLow    := low
+    segmentLowestLowBar := bar_index
+    log.info("Bar " + str.tostring(bar_index) + ": Updated segmentLowestLow=" + str.tostring(segmentLowestLow) + ", segmentLowestLowBar=" + str.tostring(segmentLowestLowBar))
+
+if na(segmentHighestHigh) or high > segmentHighestHigh
+    segmentHighestHigh    := high
+    segmentHighestHighBar := bar_index
+    log.info("Bar " + str.tostring(bar_index) + ": Updated segmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", segmentHighestHighBar=" + str.tostring(segmentHighestHighBar))
+
+//------------------------------------------------------
+// 6) Handle HigherHigh / LowerLow (Pivot Detection)
+//------------------------------------------------------
+if pendingAmbiguous and not (lastWasHigh and isAmbiguous and not highBreakout)
+    log.info("Bar " + str.tostring(bar_index) + ": Pending Ambiguous Bar, waiting for resolution")
+else if pendingInsideBar
+    log.info("Bar " + str.tostring(bar_index) + ": Pending Inside Bar, waiting for breakout")
+else
+    log.info("Bar " + str.tostring(bar_index) + ": No pending Ambiguous or Inside Bar, processing Zigzag")
+    //--- ถ้า (higherHigh หรือ High Breakout) => สวิงขึ้น
+    if (higherHigh or highBreakout) and (not isAmbiguous or prioritizeHigh)
+        log.info("Bar " + str.tostring(bar_index) + ": Swing Up Condition - higherHigh=" + str.tostring(higherHigh) + ", highBreakout=" + str.tostring(highBreakout) + ", isAmbiguous=" + str.tostring(isAmbiguous) + ", prioritizeHigh=" + str.tostring(prioritizeHigh))
+        if not lastWasHigh or na(lastWasHigh)
+            if not na(segmentLowestLow)
+                [newPrice, newBar] = f_confirmSwingLine(color.rgb(255, 0, 0), lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow)
+                lastZigzagEndPrice := newPrice
+                lastZigzagEndBar := newBar
+                log.info("Bar " + str.tostring(bar_index) + ": Pivot Low confirmed, lastWasHigh=false -> true, segmentLowestLow=" + str.tostring(segmentLowestLow) + ", Bar=" + str.tostring(segmentLowestLowBar))
+            segmentLowestLow    := na
+            segmentLowestLowBar := na
+            segmentHighestHigh  := high
+            segmentHighestHighBar := bar_index
+            log.info("Bar " + str.tostring(bar_index) + ": Reset segmentLowestLow, set segmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", segmentHighestHighBar=" + str.tostring(segmentHighestHighBar))
+        else
+            if na(segmentHighestHigh) or high > segmentHighestHigh
+                segmentHighestHigh    := high
+                segmentHighestHighBar := bar_index
+                log.info("Bar " + str.tostring(bar_index) + ": Updated segmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", segmentHighestHighBar=" + str.tostring(segmentHighestHighBar) + " (continued Swing Up)")
+        lastWasHigh    := true
+        lastPivotPrice := high
+        lastPivotBar   := bar_index
+        log.info("Bar " + str.tostring(bar_index) + ": Set lastWasHigh=true, lastPivotPrice=" + str.tostring(lastPivotPrice) + ", lastPivotBar=" + str.tostring(lastPivotBar))
+
+    //--- ถ้า (lowerLow หรือ Low Breakout) => สวิงลง
+    if (lowerLow or lowBreakout) and (not isAmbiguous or prioritizeLow)
+        log.info("Bar " + str.tostring(bar_index) + ": Swing Down Condition - lowerLow=" + str.tostring(lowerLow) + ", lowBreakout=" + str.tostring(lowBreakout) + ", isAmbiguous=" + str.tostring(isAmbiguous) + ", prioritizeLow=" + str.tostring(prioritizeLow))
+        if lastWasHigh or na(lastWasHigh)
+            if not na(segmentHighestHigh)
+                [newPrice, newBar] = f_confirmSwingLine(color.rgb(60, 255, 0), lastZigzagEndBar, lastZigzagEndPrice, segmentHighestHighBar, segmentHighestHigh)
+                lastZigzagEndPrice := newPrice
+                lastZigzagEndBar := newBar
+                log.info("Bar " + str.tostring(bar_index) + ": Pivot High confirmed, lastWasHigh=true -> false, segmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", Bar=" + str.tostring(segmentHighestHighBar))
+            segmentHighestHigh    := na
+            segmentHighestHighBar := na
+            segmentLowestLow      := low
+            segmentLowestLowBar   := bar_index
+            log.info("Bar " + str.tostring(bar_index) + ": Reset segmentHighestHigh, set segmentLowestLow=" + str.tostring(segmentLowestLow) + ", segmentLowestLowBar=" + str.tostring(segmentLowestLowBar))
+        else
+            if na(segmentLowestLow) or low < segmentLowestLow
+                segmentLowestLow    := low
+                segmentLowestLowBar := bar_index
+                log.info("Bar " + str.tostring(bar_index) + ": Updated segmentLowestLow=" + str.tostring(segmentLowestLow) + ", segmentLowestLowBar=" + str.tostring(segmentLowestLowBar) + " (continued Swing Down)")
+        lastWasHigh    := false
+        lastPivotPrice := low
+        lastPivotBar   := bar_index
+        log.info("Bar " + str.tostring(bar_index) + ": Set lastWasHigh=false, lastPivotPrice=" + str.tostring(lastPivotPrice) + ", lastPivotBar=" + str.tostring(lastPivotBar))
+
+//------------------------------------------------------
+// 7) วาดเส้นสุดท้าย เมื่อถึงบาร์ท้ายสุด
+//------------------------------------------------------
+if barstate.islastconfirmedhistory and not pendingAmbiguous and not pendingInsideBar
+    log.info("Bar " + str.tostring(bar_index) + ": Last confirmed bar, no pending Ambiguous or Inside, drawing final Zigzag")
+    if lastWasHigh
+        if not na(segmentLowestLow)
+            [newPrice, newBar] = f_confirmSwingLine(color.blue, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow)
+            lastZigzagEndPrice := newPrice
+            lastZigzagEndBar := newBar
+            log.info("Bar " + str.tostring(bar_index) + ": Final Zigzag High->Low drawn, segmentLowestLow=" + str.tostring(segmentLowestLow) + ", Bar=" + str.tostring(segmentLowestLowBar))
+    else
+        if not na(segmentHighestHigh)
+            [newPrice, newBar] = f_confirmSwingLine(color.blue, lastZigzagEndBar, lastZigzagEndPrice, segmentHighestHighBar, segmentHighestHigh)
+            lastZigzagEndPrice := newPrice
+            lastZigzagEndBar := newBar
+            log.info("Bar " + str.tostring(bar_index) + ": Final Zigzag Low->High drawn, segmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", Bar=" + str.tostring(segmentHighestHighBar))
+else if barstate.islastconfirmedhistory
+    log.info("Bar " + str.tostring(bar_index) + ": Last confirmed bar, but pendingAmbiguous=" + str.tostring(pendingAmbiguous) + " or pendingInsideBar=" + str.tostring(pendingInsideBar) + ", skipping final Zigzag")
