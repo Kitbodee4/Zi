@@ -126,13 +126,32 @@ else if not pendingInsideBar and barstate.isconfirmed
                 
                 bool isSameBar = segmentLowestLowBar == segmentHighestHighBar
                 bool isHighToLow = lastWasHigh ? false : true
-                [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow, color.red)
-                lastZigzagEndPrice := newPrice
-                lastZigzagEndBar := newBar
-                lineCounter := lineCounter + 1
-                segmentHighestHigh := pivotHigh
-                segmentHighestHighBar := bar_index
-                lastWasHigh := true
+                if close >open and isAmbiguous and not inside
+                    [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, bar_index, low, color.red)
+                    lastZigzagEndPrice := newPrice
+                    lastZigzagEndBar := newBar
+                    lineCounter := lineCounter + 1
+                    segmentHighestHigh := pivotHigh
+                    segmentHighestHighBar := bar_index
+                    lastWasHigh := true
+                 //   [newPrice2, newBar2] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, preAmbLowBar, preAmbLow, color.red)
+                 //   lastZigzagEndPrice := newPrice2
+                 //   lastZigzagEndBar := newBar2
+                 //   lineCounter := lineCounter + 1
+                 //   segmentHighestHigh := pivotHigh
+                 //   segmentHighestHighBar := bar_index
+                 //   lastWasHigh:= true
+                    
+
+
+                else
+                    [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow, color.red)
+                    lastZigzagEndPrice := newPrice
+                    lastZigzagEndBar := newBar
+                    lineCounter := lineCounter + 1
+                    segmentHighestHigh := pivotHigh
+                    segmentHighestHighBar := bar_index
+                    lastWasHigh := true
 
     if not na(pivotLow) 
         log.info("PivotLow detected: Price=" + str.tostring(pivotLow) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh))
@@ -150,7 +169,15 @@ else if not pendingInsideBar and barstate.isconfirmed
                     segmentLowestLow := pivotLow
                     segmentLowestLowBar := bar_index
                     lastWasHigh := false
+                    [newPrice1, newBar1] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice,bar_index, low, color.red)
+                    lastZigzagEndPrice := newPrice1
+                    lastZigzagEndBar := newBar1
+                    lineCounter := lineCounter + 1
+                    segmentLowestLow := pivotLow
+                    segmentLowestLowBar := bar_index
+                    lastWasHigh := false
 
+                    
 
                 else
                     [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentHighestHighBar, segmentHighestHigh, color.red)
