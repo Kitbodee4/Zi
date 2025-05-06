@@ -39,7 +39,7 @@ if pendingInsideBar
         array.clear(prevlowArray)
         pendingInsideBar := false
 
-isAmbiguous = high > high[1] and low < low[1] 
+isAmbiguous = high > high[1] and low < low[1] and not pendingInsideBar
 bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
 bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
 
