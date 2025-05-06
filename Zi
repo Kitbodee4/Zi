@@ -136,11 +136,11 @@ clear_pendingamb = (high > high[1] or low < low[1]) and (high[1] > high[2] and l
 if clear_pendingamb
     pendingAmbiguous := false
 
-if (na(segmentLowestLow) or low < segmentLowestLow) and not pendingInsideBar
+if (na(segmentLowestLow) or low < segmentLowestLow) 
     segmentLowestLow := low
     segmentLowestLowBar := bar_index
 
-if (na(segmentHighestHigh) or high > segmentHighestHigh) and not pendingInsideBar
+if (na(segmentHighestHigh) or high > segmentHighestHigh) 
     segmentHighestHigh := high
     segmentHighestHighBar := bar_index
 
