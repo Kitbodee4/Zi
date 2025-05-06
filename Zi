@@ -87,7 +87,7 @@ if not (higherHigh and lowerLow)
 
 f_confirmSwingLine(int counter, int bar1, float price1, int bar2, float price2, color lineColor) =>
     log.info("f_confirmSwingLine called: Counter=" + str.tostring(counter) + ", Bar1=" + str.tostring(bar1) + ", Price1=" + str.tostring(price1) + ", Bar2=" + str.tostring(bar2) + ", Price2=" + str.tostring(price2))
-    if not na(price1) and bar1 != bar2 and bar2 != lastZigzagEndBar
+    if not na(price1) and bar2 != lastZigzagEndBar
         line.new(bar1, price1, bar2, price2, color=lineColor, width=3)
         log.info("Line drawn: From Bar=" + str.tostring(bar1) + ", Price=" + str.tostring(price1) + " to Bar=" + str.tostring(bar2) + ", Price=" + str.tostring(price2))
     else
