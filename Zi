@@ -19,7 +19,7 @@ inside = high < high[1] and low > low[1]
 var bool pendingInsideBar = false
 var float[] prevhighArray = array.new_float(0)
 var float[] prevlowArray  = array.new_float(0)
-
+isAmbiguous = high > high[1] and low < low[1] 
 if inside
     array.push(prevhighArray, high[1])
     array.push(prevlowArray, low[1])
@@ -30,8 +30,8 @@ if inside
         array.remove(prevlowArray, 0)
 
 if pendingInsideBar
-    bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
-    bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
+    bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray) and not  isAmbiguous
+    bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray) and not isAmbiguous
     if not(highBreakout or lowBreakout)
         pendingInsideBar := true
     if highBreakout or lowBreakout
@@ -39,7 +39,7 @@ if pendingInsideBar
         array.clear(prevlowArray)
         pendingInsideBar := false
 
-isAmbiguous = high > high[1] and low < low[1] and not pendingInsideBar
+//isAmbiguous = high > high[1] and low < low[1] and not pendingInsideBar
 //bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
 //bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
 
