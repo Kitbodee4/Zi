@@ -27,16 +27,20 @@ if inside
         array.remove(prevhighArray, 0)
     if array.size(prevlowArray) > 20
         array.remove(prevlowArray, 0)
+if pendingInsideBar
 
-highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
-lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
-
-if highBreakout or lowBreakout
-    array.clear(prevhighArray)
-    array.clear(prevlowArray)
-    pendingInsideBar := false
+    bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
+    bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
+    if not(highBreakout or lowBreakout)
+        pendingInsideBar :=true
+    if highBreakout or lowBreakout
+        array.clear(prevhighArray)
+        array.clear(prevlowArray)
+        pendingInsideBar := false
 
 isAmbiguous = high > high[1] and low < low[1] 
+bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
+bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
 
 candleColor = isAmbiguous  ? color.purple :
               inside       ? color.yellow :
