@@ -159,7 +159,7 @@ if pendingInsideBar
         inside_h := true
     log.info("Pending Inside Bar: Skipping pivot detection, Barr=" + str.tostring(inside_l)+ str.tostring(inside_h))
     noOp = true
-else
+if prevhighArray.size() ==0
     log.info("Pivot Detection: Bar=" + str.tostring(bar_index) + ", HigherHigh=" + str.tostring(higherHigh) + ", LowerLow=" + str.tostring(lowerLow) + ", LastWasHigh=" + str.tostring(lastWasHigh) + ", SegmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", SegmentLowestLow=" + str.tostring(segmentLowestLow))
     
     // Handle HigherHigh during AMB waiting period
