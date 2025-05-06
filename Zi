@@ -84,10 +84,10 @@ f_confirmSwingLine(int counter, int bar1, float price1, int bar2, float price2, 
     log.info("f_confirmSwingLine called: Counter=" + str.tostring(counter) + ", Bar1=" + str.tostring(bar1) + ", Price1=" + str.tostring(price1) + ", Bar2=" + str.tostring(bar2) + ", Price2=" + str.tostring(price2))
     
     if not na(price1)
-        if bar1 != bar2
         
-            line.new(bar1, price1, bar2, price2, color=lineColor, width=3)
-            log.info("Line drawn: From Bar=" + str.tostring(bar1) + ", Price=" + str.tostring(price1) + " to Bar=" + str.tostring(bar2) + ", Price=" + str.tostring(price2))
+        
+        line.new(bar1, price1, bar2, price2, color=lineColor, width=3)
+        log.info("Line drawn: From Bar=" + str.tostring(bar1) + ", Price=" + str.tostring(price1) + " to Bar=" + str.tostring(bar2) + ", Price=" + str.tostring(price2))
     else
         log.info("Line skipped: Price1 is na")
     [price2, bar2]
@@ -223,7 +223,7 @@ else
 
     
     // Normal swing up logic
-    if higherHigh and not (waitingForHigherHigh or waitingForLowerLow)
+    if higherHigh and not (waitingForHigherHigh or waitingForLowerLow) and not pendingInsideBar
         log.info("HigherHigh detected: Price=" + str.tostring(high) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh))
         
         if not lastWasHigh or na(lastWasHigh)
@@ -238,14 +238,14 @@ else
                 lineCounter := lineCounter + 1
                 segmentHighestHigh := high
                 segmentHighestHighBar := bar_index
-               // segmentLowestLowBar:=na
-             //   segmentLowestLow := na
+                segmentLowestLowBar:=na
+                segmentLowestLow := na
                 lastWasHigh := true
                 ambAfterSwingUp := true
                 ambAfterSwingDn := false
     
     // Normal swing down logic
-    if lowerLow and not (waitingForHigherHigh or waitingForLowerLow)
+    if lowerLow and not (waitingForHigherHigh or waitingForLowerLow) and not pendingInsideBar
         log.info("LowerLow detected: Price=" + str.tostring(low) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh))
         if lastWasHigh or na(lastWasHigh)
             if not na(segmentHighestHigh)
@@ -257,8 +257,8 @@ else
                 lastZigzagEndPrice := newPrice
                 lastZigzagEndBar := newBar
                 lineCounter := lineCounter + 1
-             //   segmentHighestHigh :=na
-            //    segmentHighestHighBar := na
+                segmentHighestHigh :=na
+                segmentHighestHighBar := na
                 segmentLowestLow := low
                 segmentLowestLowBar := bar_index
                 lastWasHigh := false
