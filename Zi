@@ -1,507 +1,257 @@
-
-//@version=5
-indicator("Zigzag Inside Bar + Breakout (v5)", overlay=true, max_lines_count=500, max_labels_count=500, max_bars_back=5000)
-
-var color color_normal_high = color.rgb(0, 140, 255)
-var color color_normal_low  = color.rgb(255, 85, 0)
-var color color_amb_up_red  = color.red
-var color color_amb_up_green = color.green
-var color color_amb_down_red = color.purple
-var color color_amb_down_green = color.yellow
-var int lineCounter = 0
-
-var bool isBullish = na
-var bool isBearish = na
-isBullish := close > open
-isBearish := close < open
-
-inside = high < high[1] and low > low[1]
-var bool pendingInsideBar = false
-var float[] prevhighArray = array.new_float(0)
-var float[] prevlowArray  = array.new_float(0)
-isAmbiguous = high > high[1] and low < low[1] 
-if inside
-    array.push(prevhighArray, high[1])
-    array.push(prevlowArray, low[1])
-    pendingInsideBar := true
-    if array.size(prevhighArray) > 20
-        array.remove(prevhighArray, 0)
-    if array.size(prevlowArray) > 20
-        array.remove(prevlowArray, 0)
-
-if pendingInsideBar
-    bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray) and not  isAmbiguous
-    bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray) and not isAmbiguous
-    if not(highBreakout or lowBreakout)
-        pendingInsideBar := true
-    if highBreakout or lowBreakout
-        array.clear(prevhighArray)
-        array.clear(prevlowArray)
-        pendingInsideBar := false
-
-//isAmbiguous = high > high[1] and low < low[1] and not pendingInsideBar
-//bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray)
-//bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray)
-
-candleColor = isAmbiguous  ? color.purple :
-              inside       ? color.yellow :na
-plotcandle(open, high, low, close,
-     color       = candleColor,
-     wickcolor   = candleColor,
-     bordercolor = candleColor)
-
-var float lastZigzagEndPrice = na
-var int   lastZigzagEndBar   = na
-var bool  lastWasHigh        = na
-var float lastPivotPrice = na
-var int   lastPivotBar   = na
-var float segmentLowestLow   = na
-var int   segmentLowestLowBar = na
-var float segmentHighestHigh  = na
-var int   segmentHighestHighBar = na
-var float preAmbHigh = na
-var int   preAmbHighBar = na
-var float preAmbLow = na
-var int   preAmbLowBar = na
-
-// New variables for AMB handling
-var bool waitingForHigherHigh = false
-var bool waitingForLowerLow = false
-var bool ambAfterSwingUp = false
-var bool ambAfterSwingDn = false
-var float ambLowPrice = na
-var int ambLowBar = na
-var float ambHighPrice = na
-var int ambHighBar = na
-
-bool higherHigh = high > high[1]
-bool lowerLow   = low < low[1]
-
-if not (higherHigh and lowerLow)
-    preAmbHigh := high
-    preAmbHighBar := bar_index
-    preAmbLow := low
-    preAmbLowBar := bar_index
-
-f_confirmSwingLine(int counter, int bar1, float price1, int bar2, float price2, color lineColor) =>
-    log.info("f_confirmSwingLine called: Counter=" + str.tostring(counter) + ", Bar1=" + str.tostring(bar1) + ", Price1=" + str.tostring(price1) + ", Bar2=" + str.tostring(bar2) + ", Price2=" + str.tostring(price2))
-    if not na(price1) and bar2 != lastZigzagEndBar
-        line.new(bar1, price1, bar2, price2, color=lineColor, width=3)
-        log.info("Line drawn: From Bar=" + str.tostring(bar1) + ", Price=" + str.tostring(price1) + " to Bar=" + str.tostring(bar2) + ", Price=" + str.tostring(price2))
-    else
-        log.info("Line skipped: Invalid bars or overlap detected")
-    [price2, bar2]
-
-var bool pendingAmbiguous = false
-bool prioritizeHigh = false
-bool prioritizeLow  = false
-
-if isAmbiguous and not pendingInsideBar
-    pendingAmbiguous := true
-    label.new(bar_index, high, "AMB", color=color.green, style=label.style_label_down, textcolor=color.white, size=size.tiny)
-    if ambAfterSwingUp and close > open and not pendingInsideBar
-        ambLowPrice := low
+//@version=5 
+indicator("K.ken finish", overlay=true, max_lines_count=500, max_labels_count=500, max_bars_back=5000) 
+ 
+var color color_normal_high = color.rgb(0, 140, 255) 
+var color color_normal_low  = color.rgb(255, 85, 0) 
+var color color_amb_up_red  = color.red 
+var color color_amb_up_green = color.green 
+var color color_amb_down_red = color.purple 
+var color color_amb_down_green = color.yellow 
+var int lineCounter = 0 
+ 
+var bool isBullish = na 
+var bool isBearish = na 
+isBullish := close > open 
+isBearish := close < open 
+ 
+inside = high < high[1] and low > low[1] 
+var bool pendingInsideBar = false 
+var float[] prevhighArray = array.new_float(0) 
+var float[] prevlowArray  = array.new_float(0) 
+isAmbiguous = high > high[1] and low < low[1]  
+if inside 
+    array.push(prevhighArray, high[1]) 
+    array.push(prevlowArray, low[1]) 
+    pendingInsideBar := true 
+    if array.size(prevhighArray) > 20 
+        array.remove(prevhighArray, 0) 
+    if array.size(prevlowArray) > 20 
+        array.remove(prevlowArray, 0) 
+ 
+if pendingInsideBar 
+    bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray) and not  isAmbiguous 
+    bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray) and not isAmbiguous 
+    if not(highBreakout or lowBreakout) 
+        pendingInsideBar := true 
+    if highBreakout or lowBreakout 
+        array.clear(prevhighArray) 
+        array.clear(prevlowArray) 
+        pendingInsideBar := false 
+ 
+//isAmbiguous = high > high[1] and low < low[1] and not pendingInsideBar 
+//bool highBreakout = array.size(prevhighArray) > 0 and high > array.max(prevhighArray) 
+//bool lowBreakout  = array.size(prevlowArray) > 0 and low < array.min(prevlowArray) 
+ 
+candleColor = isAmbiguous  ? color.purple : 
+              inside       ? color.yellow :na 
+plotcandle(open, high, low, close, 
+     color       = candleColor, 
+     wickcolor   = candleColor, 
+     bordercolor = candleColor) 
+ 
+var float lastZigzagEndPrice = na 
+var int   lastZigzagEndBar   = na 
+var bool  lastWasHigh        = na 
+var float lastPivotPrice = na 
+var int   lastPivotBar   = na 
+var float segmentLowestLow   = na 
+var int   segmentLowestLowBar = na 
+var float segmentHighestHigh  = na 
+var int   segmentHighestHighBar = na 
+var float preAmbHigh = na 
+var int   preAmbHighBar = na 
+var float preAmbLow = na 
+var int   preAmbLowBar = na 
+ 
+// New variables for AMB handling 
+var bool waitingForHigherHigh = false 
+var bool waitingForLowerLow = false 
+var bool ambAfterSwingUp = false 
+var bool ambAfterSwingDn = false 
+var float ambLowPrice = na 
+var int ambLowBar = na 
+var float ambHighPrice = na 
+var int ambHighBar = na 
+ 
+bool higherHigh = high > high[1] 
+bool lowerLow   = low < low[1] 
+ 
+if not (higherHigh and lowerLow) 
+    preAmbHigh := high 
+    preAmbHighBar := bar_index 
+    preAmbLow := low 
+    preAmbLowBar := bar_index 
+ 
+f_confirmSwingLine(int counter, int bar1, float price1, int bar2, float price2, color lineColor) => 
+    log.info("f_confirmSwingLine called: Counter=" + str.tostring(counter) + ", Bar1=" + str.tostring(bar1) + ", Price1=" + str.tostring(price1) + ", Bar2=" + str.tostring(bar2) + ", Price2=" + str.tostring(price2)) 
+    if not na(price1) and bar2 != lastZigzagEndBar 
+        line.new(bar1, price1, bar2, price2, color=lineColor, width=3) 
+        log.info("Line drawn: From Bar=" + str.tostring(bar1) + ", Price=" + str.tostring(price1) + " to Bar=" + str.tostring(bar2) + ", Price=" + str.tostring(price2)) 
+    else 
+        log.info("Line skipped: Invalid bars or overlap detected") 
+    [price2, bar2] 
+ 
+var bool pendingAmbiguous = false 
+bool prioritizeHigh = false 
+bool prioritizeLow  = false 
+ 
+if isAmbiguous and not pendingInsideBar 
+    pendingAmbiguous := true 
+    label.new(bar_index, high, "AMB", color=color.green, style=label.style_label_down, textcolor=color.white, size=size.tiny) 
+    if ambAfterSwingUp and close > open and not pendingInsideBar 
+        ambLowPrice := low 
         ambLowBar := bar_index
-        log.info("AMB Swing Up: Drawing to preAmbHigh=" + str.tostring(preAmbHigh) + ", ambLowPrice=" + str.tostring(ambLowPrice))
-        if not na(preAmbHigh)
-            [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, preAmbHighBar, preAmbHigh, color.red)
-            lastZigzagEndPrice := newPrice
-            lastZigzagEndBar := newBar
-            lineCounter := lineCounter + 1
-        [newPrice, newBar] = f_confirmSwingLine(lineCounter, preAmbHighBar, preAmbHigh, ambLowBar, ambLowPrice, color.red)
-        lastZigzagEndPrice := newPrice
-        lastZigzagEndBar := newBar
-        lineCounter := lineCounter + 1
-        segmentLowestLow := na
-        segmentLowestLowBar := na
-        waitingForHigherHigh := true
-    if ambAfterSwingDn and close < open and not pendingInsideBar
-        ambHighPrice := high
-        ambHighBar := bar_index
-        log.info("AMB Swing Down: Drawing to preAmbLow=" + str.tostring(preAmbLow) + ", ambHighPrice=" + str.tostring(ambHighPrice))
-        if not na(preAmbLow)
-            [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, preAmbLowBar, preAmbLow, color.red)
-            lastZigzagEndPrice := newPrice
-            lastZigzagEndBar := newBar
-            lineCounter := lineCounter + 1
-        [newPrice, newBar] = f_confirmSwingLine(lineCounter, preAmbLowBar, preAmbLow, ambHighBar, ambHighPrice, color.blue)
-        lastZigzagEndPrice := newPrice
-        lastZigzagEndBar := newBar
-        lineCounter := lineCounter + 1
-        segmentHighestHigh := na
-        segmentHighestHighBar := na
-        waitingForLowerLow := true
 
-clear_pendingamb = (high > high[1] or low < low[1]) and (high[1] > high[2] and low[1] < low[2])
-if clear_pendingamb
-    pendingAmbiguous := false
-
-if (na(segmentLowestLow) or low < segmentLowestLow) 
-    segmentLowestLow := low
-    segmentLowestLowBar := bar_index
-
-if (na(segmentHighestHigh) or high > segmentHighestHigh) 
-    segmentHighestHigh := high
-    segmentHighestHighBar := bar_index
-
-if pendingInsideBar
-    bool inside_h = na
-    bool inside_l = na
-    if lowerLow
-        inside_l := true
-    else if higherHigh
-        inside_h := true
-    log.info("Pending Inside Bar: Skipping pivot detection, Barr=" + str.tostring(inside_l) + str.tostring(inside_h))
-
-if array.size(prevhighArray) == 0
-    log.info("Pivot Detection: Bar=" + str.tostring(bar_index) + ", HigherHigh=" + str.tostring(higherHigh) + ", LowerLow=" + str.tostring(lowerLow) + ", LastWasHigh=" + str.tostring(lastWasHigh) + ", SegmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", SegmentLowestLow=" + str.tostring(segmentLowestLow))
-    
-    // Handle HigherHigh during AMB waiting period
-    if waitingForHigherHigh and higherHigh and not pendingInsideBar and bar_index > ambLowBar + 1
-        waitingForHigherHigh := false
-        waitingForLowerLow := true
-        log.info("Post-AMB HigherHigh: Drawing to segmentLowestLow=" + str.tostring(segmentLowestLow) + ", Bar=" + str.tostring(segmentLowestLowBar))
-        if not na(segmentLowestLow) and segmentLowestLowBar != ambLowBar
-            [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow, color.red)
-            lastZigzagEndPrice := newPrice
-            lastZigzagEndBar := newBar
-            lineCounter := lineCounter + 1
-        segmentHighestHigh := high
-        segmentHighestHighBar := bar_index
-        segmentLowestLow := na
-        segmentLowestLowBar := na
-        lastWasHigh := true
-        ambAfterSwingDn := false
-    
-    // Handle LowerLow during AMB waiting period
-    if waitingForLowerLow and lowerLow and not pendingInsideBar
-        waitingForLowerLow := false
-        waitingForHigherHigh := true
-        if not na(segmentHighestHigh)
+        log.info("AMB Swing Up: Drawing to preAmbHigh=" + str.tostring(preAmbHigh) + ", ambLowPrice=" + str.tostring(ambLowPrice)) 
+        if not na(preAmbHigh) 
+            [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, preAmbHighBar, preAmbHigh, color.red) 
+            lastZigzagEndPrice := newPrice 
+            lastZigzagEndBar := newBar 
+            lineCounter := lineCounter + 1 
+        [newPrice, newBar] = f_confirmSwingLine(lineCounter, preAmbHighBar, preAmbHigh, ambLowBar, ambLowPrice, color.red) 
+        lastZigzagEndPrice := newPrice 
+        lastZigzagEndBar := newBar 
+        lineCounter := lineCounter + 1 
+        segmentLowestLow := na 
+        segmentLowestLowBar := na 
+        waitingForHigherHigh := true 
+    if ambAfterSwingDn and close < open and not pendingInsideBar 
+        ambHighPrice := high 
+        ambHighBar := bar_index 
+        log.info("AMB Swing Down: Drawing to preAmbLow=" + str.tostring(preAmbLow) + ", ambHighPrice=" + str.tostring(ambHighPrice)) 
+        if not na(preAmbLow) 
+            [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, preAmbLowBar, preAmbLow, color.red) 
+            lastZigzagEndPrice := newPrice 
+            lastZigzagEndBar := newBar 
+            lineCounter := lineCounter + 1 
+        [newPrice, newBar] = f_confirmSwingLine(lineCounter, preAmbLowBar, preAmbLow, ambHighBar, ambHighPrice, color.blue) 
+        lastZigzagEndPrice := newPrice 
+        lastZigzagEndBar := newBar 
+        lineCounter := lineCounter + 1 
+        segmentHighestHigh := na 
+        segmentHighestHighBar := na 
+        waitingForLowerLow := true 
+ 
+clear_pendingamb = (high > high[1] or low < low[1]) and (high[1] > high[2] and low[1] < low[2]) 
+if clear_pendingamb 
+    pendingAmbiguous := false 
+ 
+if (na(segmentLowestLow) or low < segmentLowestLow)  
+    segmentLowestLow := low 
+    segmentLowestLowBar := bar_index 
+ 
+if (na(segmentHighestHigh) or high > segmentHighestHigh)  
+    segmentHighestHigh := high 
+    segmentHighestHighBar := bar_index 
+ 
+if pendingInsideBar 
+    bool inside_h = na 
+    bool inside_l = na 
+    if lowerLow 
+        inside_l := true 
+    else if higherHigh 
+        inside_h := true 
+    log.info("Pending Inside Bar: Skipping pivot detection, Barr=" + str.tostring(inside_l) + str.tostring(inside_h)) 
+ 
+if array.size(prevhighArray) == 0 
+    log.info("Pivot Detection: Bar=" + str.tostring(bar_index) + ", HigherHigh=" + str.tostring(higherHigh) + ", LowerLow=" + str.tostring(lowerLow) + ", LastWasHigh=" + str.tostring(lastWasHigh) + ", SegmentHighestHigh=" + str.tostring(segmentHighestHigh) + ", SegmentLowestLow=" + str.tostring(segmentLowestLow)) 
+     
+    // Handle HigherHigh during AMB waiting period 
+    if waitingForHigherHigh and higherHigh and not pendingInsideBar and bar_index > ambLowBar + 1 
+        waitingForHigherHigh := false 
+        waitingForLowerLow := true 
+        log.info("Post-AMB HigherHigh: Drawing to segmentLowestLow=" + str.tostring(segmentLowestLow) + ", Bar=" + str.tostring(segmentLowestLowBar)) 
+        if not na(segmentLowestLow) and segmentLowestLowBar != ambLowBar 
+            [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow, color.red) 
+            lastZigzagEndPrice := newPrice 
+            lastZigzagEndBar := newBar 
+            lineCounter := lineCounter + 1 
+        segmentHighestHigh := high 
+        segmentHighestHighBar := bar_index 
+        segmentLowestLow := na 
+        segmentLowestLowBar := na 
+        lastWasHigh := true 
+        ambAfterSwingDn := false 
+     
+    // Handle LowerLow during AMB waiting period 
+    if waitingForLowerLow and lowerLow and not pendingInsideBar 
+        waitingForLowerLow := false 
+        waitingForHigherHigh := true 
+        if not na(segmentHighestHigh) 
             [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentHighestHighBar, segmentHighestHigh, color.red)
-            lastZigzagEndPrice := newPrice
-            lastZigzagEndBar := newBar
-            lineCounter := lineCounter + 1
-        segmentLowestLow := low
-        segmentLowestLowBar := bar_index
-        segmentHighestHigh := na
-        segmentHighestHighBar := na
-        lastWasHigh := false
-        ambAfterSwingUp := false
-    
-    // Handle LowerLow first during AMB waiting period
-    if waitingForHigherHigh and lowerLow and not pendingInsideBar
-        waitingForHigherHigh := false
-        waitingForLowerLow := false
-        [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, bar_index, low, color.red)
-        lastZigzagEndPrice := newPrice
-        lastZigzagEndBar := newBar
-        lineCounter := lineCounter + 1
-        segmentLowestLow := low
-        segmentLowestLowBar := bar_index
-        segmentHighestHigh := na
-        segmentHighestHighBar := na
-        lastWasHigh := false
-        ambAfterSwingUp := false
 
-    if waitingForLowerLow and higherHigh and not pendingInsideBar
-        waitingForHigherHigh := false
-        waitingForLowerLow := false
-        [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, bar_index, high, color.red)
-        lastZigzagEndPrice := newPrice
-        lastZigzagEndBar := newBar
-        lineCounter := lineCounter + 1
-        segmentHighestHigh := high
-        segmentHighestHighBar := bar_index
-        segmentLowestLow := na
-        segmentLowestLowBar := na
-        lastWasHigh := true
-        ambAfterSwingDn := false
-    
-    // Normal swing up logic
-    if higherHigh and not (waitingForHigherHigh or waitingForLowerLow) and not pendingInsideBar
-        log.info("HigherHigh detected: Price=" + str.tostring(high) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh))
-        if not lastWasHigh or na(lastWasHigh)
-            if not na(segmentLowestLow)
-                log.info("Swing Up attempt: From Bar=" + str.tostring(lastZigzagEndBar) + ", Price=" + str.tostring(lastZigzagEndPrice) + " to Bar=" + str.tostring(segmentLowestLowBar) + ", Price=" + str.tostring(segmentLowestLow))
-                [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow, color.red)
-                lastZigzagEndPrice := newPrice
-                lastZigzagEndBar := newBar
-                lineCounter := lineCounter + 1
-                segmentHighestHigh := high
-                segmentHighestHighBar := bar_index
-                segmentLowestLow := na
-                segmentLowestLowBar := na
-                lastWasHigh := true
-                ambAfterSwingUp := true
-                ambAfterSwingDn := false
-    
-    // Normal swing down logic
-    if lowerLow and not (waitingForHigherHigh or waitingForLowerLow) and not pendingInsideBar
-        log.info("LowerLow detected: Price=" + str.tostring(low) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh))
-        if lastWasHigh or na(lastWasHigh)
-            if not na(segmentHighestHigh)
-                log.info("Swing Down attempt: From Bar=" + str.tostring(lastZigzagEndBar) + ", Price=" + str.tostring(lastZigzagEndPrice) + " to Bar=" + str.tostring(segmentHighestHighBar) + ", Price=" + str.tostring(segmentHighestHigh))
-                [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentHighestHighBar, segmentHighestHigh, color.red)
-                lastZigzagEndPrice := newPrice
-                lastZigzagEndBar := newBar
-                lineCounter := lineCounter + 1
-                segmentHighestHigh := na
-                segmentHighestHighBar := na
-                segmentLowestLow := low
-                segmentLowestLowBar := bar_index
-                lastWasHigh := false
-                ambAfterSwingUp := false
+
+            lastZigzagEndPrice := newPrice 
+            lastZigzagEndBar := newBar 
+            lineCounter := lineCounter + 1 
+        segmentLowestLow := low 
+        segmentLowestLowBar := bar_index 
+        segmentHighestHigh := na 
+        segmentHighestHighBar := na 
+        lastWasHigh := false 
+        ambAfterSwingUp := false 
+     
+    // Handle LowerLow first during AMB waiting period 
+    if waitingForHigherHigh and lowerLow and not pendingInsideBar 
+        waitingForHigherHigh := false 
+        waitingForLowerLow := false 
+        [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, bar_index, low, color.red) 
+        lastZigzagEndPrice := newPrice 
+        lastZigzagEndBar := newBar 
+        lineCounter := lineCounter + 1 
+        segmentLowestLow := low 
+        segmentLowestLowBar := bar_index 
+        segmentHighestHigh := na 
+        segmentHighestHighBar := na 
+        lastWasHigh := false 
+        ambAfterSwingUp := false 
+ 
+    if waitingForLowerLow and higherHigh and not pendingInsideBar 
+        waitingForHigherHigh := false 
+        waitingForLowerLow := false 
+        [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, bar_index, high, color.red) 
+        lastZigzagEndPrice := newPrice 
+        lastZigzagEndBar := newBar 
+        lineCounter := lineCounter + 1 
+        segmentHighestHigh := high 
+        segmentHighestHighBar := bar_index 
+        segmentLowestLow := na 
+        segmentLowestLowBar := na 
+        lastWasHigh := true 
+        ambAfterSwingDn := false 
+     
+    // Normal swing up logic 
+    if higherHigh and not (waitingForHigherHigh or waitingForLowerLow) and not pendingInsideBar 
+        log.info("HigherHigh detected: Price=" + str.tostring(high) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh)) 
+        if not lastWasHigh or na(lastWasHigh) 
+            if not na(segmentLowestLow) 
+                log.info("Swing Up attempt: From Bar=" + str.tostring(lastZigzagEndBar) + ", Price=" + str.tostring(lastZigzagEndPrice) + " to Bar=" + str.tostring(segmentLowestLowBar) + ", Price=" + str.tostring(segmentLowestLow)) 
+                [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentLowestLowBar, segmentLowestLow, color.red) 
+                lastZigzagEndPrice := newPrice 
+                lastZigzagEndBar := newBar 
+                lineCounter := lineCounter + 1 
+                segmentHighestHigh := high 
+                segmentHighestHighBar := bar_index 
+                segmentLowestLow := na 
+                segmentLowestLowBar := na 
+                lastWasHigh := true 
+                ambAfterSwingUp := true 
+                ambAfterSwingDn := false 
+     
+    // Normal swing down logic 
+    if lowerLow and not (waitingForHigherHigh or waitingForLowerLow) and not pendingInsideBar 
+        log.info("LowerLow detected: Price=" + str.tostring(low) + ", Bar=" + str.tostring(bar_index) + ", LastWasHigh=" + str.tostring(lastWasHigh)) 
+        if lastWasHigh or na(lastWasHigh) 
+            if not na(segmentHighestHigh) 
+                log.info("Swing Down attempt: From Bar=" + str.tostring(lastZigzagEndBar) + ", Price=" + str.tostring(lastZigzagEndPrice) + " to Bar=" + str.tostring(segmentHighestHighBar) + ", Price=" + str.tostring(segmentHighestHigh)) 
+                [newPrice, newBar] = f_confirmSwingLine(lineCounter, lastZigzagEndBar, lastZigzagEndPrice, segmentHighestHighBar, segmentHighestHigh, color.red) 
+                lastZigzagEndPrice := newPrice 
+                lastZigzagEndBar := newBar 
+                lineCounter := lineCounter + 1 
+                segmentHighestHigh := na 
+                segmentHighestHighBar := na 
+                segmentLowestLow := low 
+                segmentLowestLowBar := bar_index 
+                lastWasHigh := false 
+                ambAfterSwingUp := false 
                 ambAfterSwingDn := true
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
